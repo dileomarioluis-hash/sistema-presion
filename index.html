@@ -46,7 +46,7 @@
   .hero-dia{font-size:38px;line-height:1;font-weight:500;color:var(--tinta2)}
   .chip{display:inline-block;margin-top:12px;padding:4px 10px;border-radius:999px;
     background:var(--acento-suave);font-size:13px;font-weight:600}
-  .item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--linea)}
+  .item{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--linea)}
   .item:first-child{border-top:none}
   .mini{background:none;border:none;color:var(--tinta2);font-size:13px;padding:4px 6px}
   .dia{color:var(--tinta2);font-size:13px;margin:0 0 6px 2px}
@@ -137,9 +137,34 @@
       <label for="brazo">Brazo</label>
       <select id="brazo"><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option></select>
     </div>
-    <div style="margin-top:10px">
-      <label for="nota">Nota (opcional)</label>
-      <input id="nota" placeholder="En ayunas, después de caminar…">
+    <div class="grid2">
+      <div>
+        <label for="situacion">Situación</label>
+        <select id="situacion">
+          <option value="">Sin aclarar</option>
+          <option value="En ayunas">En ayunas</option>
+          <option value="Al levantarme">Al levantarme</option>
+          <option value="Antes de comer">Antes de comer</option>
+          <option value="Después de comer">Después de comer</option>
+          <option value="En reposo">En reposo</option>
+          <option value="Después de caminar">Después de caminar</option>
+          <option value="Con malestar">Con malestar</option>
+          <option value="Antes de dormir">Antes de dormir</option>
+          <option value="otra">Otra…</option>
+        </select>
+      </div>
+      <div>
+        <label for="medicacion">Medicación</label>
+        <select id="medicacion">
+          <option value="">Sin aclarar</option>
+          <option value="Con medicación">Ya la tomé</option>
+          <option value="Sin medicación">Todavía no la tomé</option>
+        </select>
+      </div>
+    </div>
+    <div id="caja-nota" class="oculto" style="margin-top:10px">
+      <label for="nota">¿Cuál?</label>
+      <input id="nota" placeholder="Escribilo acá">
     </div>
     <div class="fila-botones" style="margin-top:16px">
       <button id="guardar" class="principal" style="flex:2">Guardar toma</button>
@@ -335,6 +360,11 @@ function pintarGrafico(){
   $('grafico').innerHTML = guias + ref + linea('sistolica','var(--tinta)') + linea('diastolica','var(--acento)') + ejeX;
 }
 
+function detalle(r){
+  const p = [r.situacion || r.nota || '', r.medicacion || ''].filter(Boolean);
+  return p.join(' · ');
+}
+
 function pintarHistorial(){
   $('seccion-historial').classList.toggle('oculto', registros.length === 0);
   const mapa = new Map();
@@ -354,7 +384,9 @@ function pintarHistorial(){
           <span style="margin-left:auto;display:flex;gap:2px">
             <button class="mini" data-editar="${r.id}">Editar</button>
             <button class="mini" data-borrar="${r.id}" style="color:var(--alto)">Borrar</button>
-          </span></div>`; }).join('')}</div>
+          </span>
+          ${detalle(r) ? `<span style="flex-basis:100%;color:var(--tinta2);font-size:12.5px;margin-top:-4px">${detalle(r)}</span>` : ''}
+          </div>`; }).join('')}</div>
     </div>`).join('');
   const vm = $('ver-mas');
   vm.classList.toggle('oculto', dias.length <= 4);
@@ -372,12 +404,21 @@ function abrirRevision(datos, preview){
   $('fecha').value = datos.fecha;
   $('hora').value = datos.hora;
   $('brazo').value = datos.brazo || 'izquierdo';
-  $('nota').value = datos.nota || '';
+  $('medicacion').value = datos.medicacion || '';
+  const opciones = [...$('situacion').options].map(o => o.value);
+  const s = datos.situacion || '';
+  if(s && !opciones.includes(s)){ $('situacion').value = 'otra'; $('nota').value = s; }
+  else { $('situacion').value = s; $('nota').value = ''; }
+  verNota();
   const img = $('preview');
   if(preview){ img.src = preview; img.classList.remove('oculto'); } else { img.classList.add('oculto'); img.removeAttribute('src'); }
   $('revision').classList.remove('oculto');
   $('captura').classList.add('oculto');
-  $('revision').scrollIntoView({behavior:'smooth', block:'center'});
+  $('revision').scrollIntoView?.({behavior:'smooth', block:'center'});
+}
+
+function verNota(){
+  $('caja-nota').classList.toggle('oculto', $('situacion').value !== 'otra');
 }
 
 function cerrarRevision(){
@@ -407,7 +448,7 @@ async function procesarFoto(e){
       id:null, sistolica:d.sistolica ?? '', diastolica:d.diastolica ?? '', pulso:d.pulso ?? '',
       fecha: /^\d{4}-\d{2}-\d{2}$/.test(d.fecha||'') ? d.fecha : n.fecha,
       hora: /^\d{2}:\d{2}$/.test(d.hora||'') ? d.hora : n.hora,
-      brazo:'izquierdo', nota:''
+      brazo:'izquierdo', situacion:'', medicacion:''
     }, preview);
     if(d.nota) mostrar(avisoEl(), d.nota);
   }catch(err){
@@ -434,7 +475,8 @@ function guardarToma(){
     fecha: $('fecha').value || ahora().fecha,
     hora: $('hora').value || ahora().hora,
     brazo: $('brazo').value,
-    nota: $('nota').value.trim()
+    situacion: $('situacion').value === 'otra' ? $('nota').value.trim() : $('situacion').value,
+    medicacion: $('medicacion').value
   };
   registros = [...registros.filter(r => r.id !== reg.id), reg]
     .sort((a,b) => `${b.fecha} ${b.hora}`.localeCompare(`${a.fecha} ${a.hora}`));
@@ -455,7 +497,8 @@ $('btn-foto').onclick = () => $('camara').click();
 $('btn-galeria').onclick = () => $('galeria').click();
 $('camara').onchange = procesarFoto;
 $('galeria').onchange = procesarFoto;
-$('btn-mano').onclick = () => { const n = ahora(); abrirRevision({ id:null, sistolica:'', diastolica:'', pulso:'', ...n, brazo:'izquierdo', nota:'' }, null); };
+$('btn-mano').onclick = () => { const n = ahora(); abrirRevision({ id:null, sistolica:'', diastolica:'', pulso:'', ...n, brazo:'izquierdo', situacion:'', medicacion:'' }, null); };
+$('situacion').onchange = verNota;
 $('cancelar').onclick = cerrarRevision;
 $('guardar').onclick = guardarToma;
 $('btn-config').onclick = () => $('config').classList.toggle('oculto');
@@ -493,10 +536,10 @@ $('probar').onclick = async () => {
 };
 
 $('csv').onclick = () => {
-  const filas = [['fecha','hora','sistolica','diastolica','pulso','brazo','nota']];
+  const filas = [['fecha','hora','sistolica','diastolica','pulso','brazo','situacion','medicacion']];
   [...registros].reverse().forEach(r => {
     const [a,m,d] = r.fecha.split('-');
-    filas.push([`${d}/${m}/${a}`, r.hora, r.sistolica, r.diastolica, r.pulso ?? '', r.brazo, r.nota]);
+    filas.push([`${d}/${m}/${a}`, r.hora, r.sistolica, r.diastolica, r.pulso ?? '', r.brazo, r.situacion || r.nota || '', r.medicacion || '']);
   });
   bajar('presion-arterial.csv', '\uFEFF' + filas.map(f=>f.join(';')).join('\n'), 'text/csv;charset=utf-8');
 };
