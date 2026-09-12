@@ -55,6 +55,20 @@
   .borde-acento{border-color:var(--acento)}
   .pie{color:var(--tinta2);font-size:12px;line-height:1.5;margin-top:28px}
   a{color:var(--acento)}
+  @media print{
+    body{background:#fff;padding:0}
+    header, #config, #captura, #hero, #seccion-grafico, #seccion-historial,
+    #revision, .pie, #controles-informe, #error, #aviso{display:none !important}
+    #caja-informe{border:none;padding:0}
+    main{max-width:none}
+    table{page-break-inside:auto}
+    tr{page-break-inside:avoid}
+  }
+  #informe table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  #informe th{text-align:left;font-weight:600;border-bottom:1px solid var(--linea);padding:6px 4px;font-size:12px;color:var(--tinta2)}
+  #informe td{padding:6px 4px;border-bottom:1px solid var(--linea)}
+  #informe h3{font-family:var(--serif);font-size:17px;margin:18px 0 6px;font-weight:600}
+  #informe .kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--linea);font-size:14px}
   @media (prefers-reduced-motion:no-preference){
     .principal{transition:background .15s ease}
   }
@@ -89,6 +103,26 @@
       <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Sacar la clave acá</a>
       — entrás con tu cuenta de Google, "Create API key", y la pegás arriba.
     </p>
+    <hr style="border:none;border-top:1px solid var(--linea);margin:16px 0">
+    <h2>Mis datos</h2>
+    <p class="sub" style="margin:0 0 12px">Van en el encabezado del informe.</p>
+    <div class="grid2" style="margin-top:0">
+      <div><label for="p-nombre">Nombre</label><input id="p-nombre" placeholder="Nombre y apellido"></div>
+      <div><label for="p-nac">Fecha de nacimiento</label><input id="p-nac" type="date"></div>
+    </div>
+    <div class="grid2">
+      <div><label for="p-peso">Peso (kg)</label><input id="p-peso" type="number" inputmode="decimal" step="0.1"></div>
+      <div><label for="p-altura">Altura (cm)</label><input id="p-altura" type="number" inputmode="numeric"></div>
+    </div>
+    <div style="margin-top:10px">
+      <label for="p-medic">Medicación que tomás</label>
+      <input id="p-medic" placeholder="Nombre y dosis">
+    </div>
+    <div class="grid2">
+      <div><label for="p-medico">Médico</label><input id="p-medico" placeholder="Dr./Dra."></div>
+      <div><label for="p-obra">Obra social</label><input id="p-obra"></div>
+    </div>
+    <p id="imc" class="sub" style="margin-top:10px"></p>
     <hr style="border:none;border-top:1px solid var(--linea);margin:16px 0">
     <h2>Copia de seguridad</h2>
     <div class="fila-botones" style="margin-top:0">
@@ -185,10 +219,34 @@
   <section id="seccion-historial" class="oculto" style="margin-top:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <h2 style="margin:0">Historial</h2>
-      <button id="csv" class="mini" style="border:1px solid var(--linea);border-radius:8px;padding:6px 11px;color:var(--acento);font-size:13.5px">Bajar CSV</button>
+      <span style="display:flex;gap:6px">
+        <button id="btn-informe" class="mini" style="border:1px solid var(--linea);border-radius:8px;padding:6px 11px;color:var(--acento);font-size:13.5px">Informe</button>
+        <button id="csv" class="mini" style="border:1px solid var(--linea);border-radius:8px;padding:6px 11px;color:var(--acento);font-size:13.5px">CSV</button>
+      </span>
     </div>
     <div id="historial"></div>
     <button id="ver-mas" class="link oculto" style="width:100%;text-align:center"></button>
+  </section>
+
+
+  <!-- INFORME -->
+  <section id="seccion-informe" class="oculto" style="margin-top:22px">
+    <div class="tarjeta" id="caja-informe">
+      <div id="controles-informe" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:14px">
+        <div style="flex:1">
+          <label for="periodo">Período</label>
+          <select id="periodo">
+            <option value="7">Últimos 7 días</option>
+            <option value="30" selected>Últimos 30 días</option>
+            <option value="90">Últimos 90 días</option>
+            <option value="0">Todo</option>
+          </select>
+        </div>
+        <button id="imprimir" class="secundario" style="flex:0 0 auto">Imprimir / PDF</button>
+        <button id="cerrar-informe" class="secundario" style="flex:0 0 auto">Cerrar</button>
+      </div>
+      <div id="informe"></div>
+    </div>
   </section>
 
   <p class="pie">
@@ -570,6 +628,148 @@ $('btn-instalar').onclick = async () => {
 };
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+
+/* ---------------- perfil ---------------- */
+const K_PERF = 'presion.perfil';
+const CAMPOS = { 'p-nombre':'nombre', 'p-nac':'nacimiento', 'p-peso':'peso', 'p-altura':'altura',
+                 'p-medic':'medicacion', 'p-medico':'medico', 'p-obra':'obra' };
+
+function cargarPerfil(){
+  const p = leer(K_PERF, {});
+  for(const [id,k] of Object.entries(CAMPOS)) $(id).value = p[k] || '';
+  mostrarImc();
+}
+function guardarPerfil(){
+  const p = {};
+  for(const [id,k] of Object.entries(CAMPOS)) p[k] = $(id).value.trim();
+  escribir(K_PERF, p);
+  mostrarImc();
+}
+function edad(nac){
+  if(!nac) return null;
+  const n = new Date(nac), h = new Date();
+  let a = h.getFullYear() - n.getFullYear();
+  const m = h.getMonth() - n.getMonth();
+  if(m < 0 || (m === 0 && h.getDate() < n.getDate())) a--;
+  return a >= 0 && a < 130 ? a : null;
+}
+function imc(p){
+  const kg = parseFloat(p.peso), cm = parseFloat(p.altura);
+  if(!kg || !cm) return null;
+  return (kg / Math.pow(cm/100, 2)).toFixed(1);
+}
+function mostrarImc(){
+  const p = leer(K_PERF, {});
+  const i = imc(p), e = edad(p.nacimiento);
+  const partes = [];
+  if(e !== null) partes.push(`${e} años`);
+  if(i) partes.push(`índice de masa corporal ${i}`);
+  $('imc').textContent = partes.join(' · ');
+}
+Object.keys(CAMPOS).forEach(id => { $(id).onchange = guardarPerfil; });
+
+/* ---------------- informe ---------------- */
+function enPeriodo(dias){
+  if(!dias) return [...registros];
+  const l = new Date(); l.setDate(l.getDate() - dias);
+  const iso = `${l.getFullYear()}-${dd(l.getMonth()+1)}-${dd(l.getDate())}`;
+  return registros.filter(r => r.fecha >= iso);
+}
+function prom(lista, k){
+  const v = lista.map(x => x[k]).filter(x => x != null && !isNaN(x));
+  return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null;
+}
+function bloque(titulo, lista){
+  if(!lista.length) return '';
+  const s = prom(lista,'sistolica'), d = prom(lista,'diastolica');
+  return `<div class="kv"><span>${titulo}</span><span class="num"><b>${s}/${d}</b> (${lista.length})</span></div>`;
+}
+function generarInforme(){
+  const dias = parseInt($('periodo').value, 10);
+  const lista = enPeriodo(dias);
+  const p = leer(K_PERF, {});
+  const e = edad(p.nacimiento), i = imc(p);
+  const hoy = ahora();
+
+  if(!lista.length){ $('informe').innerHTML = '<p>No hay tomas en ese período.</p>'; return; }
+
+  const ficha = [
+    p.nombre ? ['Nombre', p.nombre] : null,
+    e !== null ? ['Edad', `${e} años`] : null,
+    p.peso ? ['Peso', `${p.peso} kg`] : null,
+    p.altura ? ['Altura', `${p.altura} cm`] : null,
+    i ? ['Índice de masa corporal', i] : null,
+    p.medicacion ? ['Medicación', p.medicacion] : null,
+    p.medico ? ['Médico', p.medico] : null,
+    p.obra ? ['Obra social', p.obra] : null
+  ].filter(Boolean).map(([k,v]) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`).join('');
+
+  const manana = lista.filter(r => r.hora < '12:00');
+  const tarde  = lista.filter(r => r.hora >= '12:00' && r.hora < '19:00');
+  const noche  = lista.filter(r => r.hora >= '19:00');
+  const conMed = lista.filter(r => r.medicacion === 'Con medicación');
+  const sinMed = lista.filter(r => r.medicacion === 'Sin medicación');
+  const ayunas = lista.filter(r => (r.situacion||'') === 'En ayunas');
+
+  const maxS = lista.reduce((a,b) => b.sistolica > a.sistolica ? b : a);
+  const minS = lista.reduce((a,b) => b.sistolica < a.sistolica ? b : a);
+
+  const cuenta = {};
+  lista.forEach(r => { const t = categoria(r.sistolica, r.diastolica).t; cuenta[t] = (cuenta[t]||0)+1; });
+  const catHtml = Object.entries(cuenta).sort((a,b)=>b[1]-a[1]).map(([t,n]) =>
+    `<div class="kv"><span>Tomas en rango ${t}</span><span class="num">${n} (${Math.round(n*100/lista.length)}%)</span></div>`).join('');
+
+  const filas = lista.map(r => {
+    const [a,m,d] = r.fecha.split('-');
+    const ctx = [r.situacion || r.nota || '', r.medicacion || ''].filter(Boolean).join(' · ');
+    return `<tr><td class="num">${d}/${m}</td><td class="num">${r.hora}</td>
+      <td class="num"><b>${r.sistolica}/${r.diastolica}</b></td>
+      <td class="num">${r.pulso ?? ''}</td><td>${ctx}</td></tr>`;
+  }).join('');
+
+  const desde = lista[lista.length-1].fecha, hasta = lista[0].fecha;
+  const [da,dm,ddd] = desde.split('-'), [ha,hm,hd] = hasta.split('-');
+
+  $('informe').innerHTML = `
+    <h2 style="font-size:22px;margin:0">Registro de presión arterial</h2>
+    <p class="sub" style="margin:4px 0 14px">
+      Del ${ddd}/${dm}/${da} al ${hd}/${hm}/${ha} · ${lista.length} tomas · emitido el ${hoy.fecha.split('-').reverse().join('/')}
+    </p>
+    ${ficha ? `<h3>Datos</h3>${ficha}` : ''}
+    <h3>Promedios</h3>
+    ${bloque('General', lista)}
+    ${bloque('Mañana (antes de las 12)', manana)}
+    ${bloque('Tarde (12 a 19)', tarde)}
+    ${bloque('Noche (después de las 19)', noche)}
+    ${bloque('En ayunas', ayunas)}
+    ${bloque('Con la medicación tomada', conMed)}
+    ${bloque('Antes de la medicación', sinMed)}
+    <div class="kv"><span>Pulso promedio</span><span class="num">${prom(lista,'pulso') ?? '—'}</span></div>
+    <h3>Extremos</h3>
+    <div class="kv"><span>Más alta</span><span class="num">${maxS.sistolica}/${maxS.diastolica} — ${maxS.fecha.slice(8)}/${maxS.fecha.slice(5,7)} ${maxS.hora}</span></div>
+    <div class="kv"><span>Más baja</span><span class="num">${minS.sistolica}/${minS.diastolica} — ${minS.fecha.slice(8)}/${minS.fecha.slice(5,7)} ${minS.hora}</span></div>
+    <h3>Distribución</h3>
+    ${catHtml}
+    <h3>Detalle de las tomas</h3>
+    <table><thead><tr><th>Día</th><th>Hora</th><th>Presión</th><th>Pulso</th><th>Situación</th></tr></thead>
+    <tbody>${filas}</tbody></table>
+    <p class="sub" style="margin-top:14px;font-size:11.5px">
+      Registro domiciliario tomado por el propio paciente. Los rangos de referencia son orientativos
+      y no constituyen un diagnóstico.
+    </p>`;
+}
+
+$('btn-informe').onclick = () => {
+  $('seccion-informe').classList.remove('oculto');
+  generarInforme();
+  $('seccion-informe').scrollIntoView?.({behavior:'smooth', block:'start'});
+};
+$('periodo').onchange = generarInforme;
+$('imprimir').onclick = () => window.print();
+$('cerrar-informe').onclick = () => $('seccion-informe').classList.add('oculto');
+
+cargarPerfil();
 
 if(!localStorage.getItem(K_CLAVE)) $('config').classList.remove('oculto');
 $('clave').value = localStorage.getItem(K_CLAVE) || '';
