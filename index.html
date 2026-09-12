@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi presión</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1F6F6B">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --fondo:#E7EBEE; --papel:#fff; --tinta:#101A22; --tinta2:#5B6B78;
+    --linea:#CDD6DC; --acento:#1F6F6B; --acento-suave:#DDEAE8;
+    --ambar:#9A6410; --alto:#9E2B2B;
+    --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--sans)}
+  body{padding:20px 16px calc(56px + env(safe-area-inset-bottom))}
+  main{max-width:460px;margin:0 auto}
+  h1{font-family:var(--serif);font-size:27px;margin:0;font-weight:600;letter-spacing:-.01em}
+  h2{font-family:var(--serif);font-size:19px;margin:0 0 10px;font-weight:600}
+  p{margin:0}
+  .sub{color:var(--tinta2);font-size:14px;margin-top:4px}
+  .tarjeta{background:var(--papel);border:1px solid var(--linea);border-radius:14px;padding:18px}
+  .num{font-variant-numeric:tabular-nums}
+  button,input,select{font-family:inherit;font-size:16px}
+  button{cursor:pointer}
+  :focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+  .principal{width:100%;padding:16px;border:none;border-radius:12px;background:var(--acento);
+    color:#fff;font-size:17px;font-weight:600}
+  .principal[disabled]{background:var(--tinta2)}
+  .secundario{flex:1;padding:13px 10px;border:1px solid var(--linea);border-radius:11px;
+    background:var(--papel);color:var(--tinta);font-size:15px}
+  .fila-botones{display:flex;gap:10px;margin-top:10px}
+  label{display:block;font-size:12.5px;color:var(--tinta2);margin-bottom:4px}
+  input,select{width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--linea);
+    background:#fff;color:var(--tinta)}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .mensaje{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--papel);
+    border:1px solid;font-size:14px}
+  .oculto{display:none !important}
+  .hero-num{font-size:54px;line-height:1;font-weight:600;letter-spacing:-.03em}
+  .hero-dia{font-size:38px;line-height:1;font-weight:500;color:var(--tinta2)}
+  .chip{display:inline-block;margin-top:12px;padding:4px 10px;border-radius:999px;
+    background:var(--acento-suave);font-size:13px;font-weight:600}
+  .item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--linea)}
+  .item:first-child{border-top:none}
+  .mini{background:none;border:none;color:var(--tinta2);font-size:13px;padding:4px 6px}
+  .dia{color:var(--tinta2);font-size:13px;margin:0 0 6px 2px}
+  .lista{background:var(--papel);border:1px solid var(--linea);border-radius:12px;overflow:hidden}
+  .link{background:none;border:none;color:var(--acento);font-size:14px;padding:6px 0;text-decoration:underline}
+  .borde-acento{border-color:var(--acento)}
+  .pie{color:var(--tinta2);font-size:12px;line-height:1.5;margin-top:28px}
+  a{color:var(--acento)}
+  @media (prefers-reduced-motion:no-preference){
+    .principal{transition:background .15s ease}
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header style="display:flex;align-items:flex-start;gap:12px;margin-bottom:18px">
+    <div style="flex:1">
+      <h1>Mi presión</h1>
+      <p class="sub">Sacá la foto del tensiómetro y queda anotada.</p>
+    </div>
+    <button id="btn-config" class="mini" style="font-size:14px;padding:8px">Ajustes</button>
+  </header>
+
+  <!-- ALTA / CONFIGURACIÓN -->
+  <section id="config" class="tarjeta oculto" style="margin-bottom:14px">
+    <h2>Clave de lectura</h2>
+    <p class="sub" style="margin:0 0 12px">
+      Para leer la pantalla del aparato hace falta una clave gratuita de Google AI Studio.
+      Se guarda solo en este teléfono.
+    </p>
+    <label for="clave">Clave de API</label>
+    <input id="clave" type="password" placeholder="AIza..." autocomplete="off">
+    <div class="fila-botones">
+      <button id="probar" class="secundario">Probar la clave</button>
+      <button id="guardar-clave" class="secundario">Guardar</button>
+    </div>
+    <p id="estado-clave" class="sub" style="margin-top:10px"></p>
+    <p class="sub" style="margin-top:12px">
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Sacar la clave acá</a>
+      — entrás con tu cuenta de Google, "Create API key", y la pegás arriba.
+    </p>
+    <hr style="border:none;border-top:1px solid var(--linea);margin:16px 0">
+    <h2>Copia de seguridad</h2>
+    <div class="fila-botones" style="margin-top:0">
+      <button id="exportar-json" class="secundario">Bajar respaldo</button>
+      <button id="importar-json" class="secundario">Restaurar</button>
+    </div>
+    <input id="archivo-json" type="file" accept="application/json" class="oculto">
+    <p class="sub" style="margin-top:10px">El historial vive en este teléfono. Bajá el respaldo cada tanto.</p>
+  </section>
+
+  <!-- ÚLTIMA TOMA -->
+  <section id="hero" class="tarjeta"></section>
+
+  <!-- CAPTURA -->
+  <div id="captura" style="margin-top:14px">
+    <button id="btn-foto" class="principal">Sacar foto del tensiómetro</button>
+    <div class="fila-botones">
+      <button id="btn-galeria" class="secundario">Elegir de la galería</button>
+      <button id="btn-mano" class="secundario">Cargar a mano</button>
+    </div>
+    <button id="btn-instalar" class="link oculto" style="margin-top:8px">Instalar en la pantalla de inicio</button>
+  </div>
+
+  <input id="camara" type="file" accept="image/*" capture="environment" class="oculto">
+  <input id="galeria" type="file" accept="image/*" class="oculto">
+
+  <p id="error" class="mensaje oculto" style="border-color:var(--alto);color:var(--alto)"></p>
+  <p id="aviso" class="mensaje oculto" style="border-color:var(--ambar);color:var(--ambar)"></p>
+
+  <!-- REVISIÓN -->
+  <section id="revision" class="tarjeta borde-acento oculto" style="margin-top:14px">
+    <h2 style="margin-bottom:2px">Revisá los números</h2>
+    <p class="sub" style="margin:0 0 14px">Corregí lo que haga falta antes de guardar.</p>
+    <img id="preview" alt="Foto de la pantalla del tensiómetro"
+         style="width:100%;border-radius:10px;margin-bottom:14px;border:1px solid var(--linea)" class="oculto">
+    <div class="grid3">
+      <div><label for="sis">Sistólica</label><input id="sis" class="num" type="number" inputmode="numeric"></div>
+      <div><label for="dia">Diastólica</label><input id="dia" class="num" type="number" inputmode="numeric"></div>
+      <div><label for="pul">Pulso</label><input id="pul" class="num" type="number" inputmode="numeric"></div>
+    </div>
+    <div class="grid2">
+      <div><label for="fecha">Día</label><input id="fecha" type="date"></div>
+      <div><label for="hora">Hora</label><input id="hora" type="time"></div>
+    </div>
+    <div style="margin-top:10px">
+      <label for="brazo">Brazo</label>
+      <select id="brazo"><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option></select>
+    </div>
+    <div style="margin-top:10px">
+      <label for="nota">Nota (opcional)</label>
+      <input id="nota" placeholder="En ayunas, después de caminar…">
+    </div>
+    <div class="fila-botones" style="margin-top:16px">
+      <button id="guardar" class="principal" style="flex:2">Guardar toma</button>
+      <button id="cancelar" class="secundario">Cancelar</button>
+    </div>
+  </section>
+
+  <!-- GRÁFICO -->
+  <section id="seccion-grafico" class="oculto" style="margin-top:22px">
+    <h2 id="titulo-grafico">Últimas tomas</h2>
+    <div class="tarjeta" style="padding:12px 8px 6px"><svg id="grafico" viewBox="0 0 420 210" style="width:100%;height:auto"></svg></div>
+    <p class="sub" style="margin:8px 2px 0;font-size:12.5px">
+      Línea oscura: sistólica. Línea verde: diastólica. Las rayas marcan 140 y 90.
+    </p>
+  </section>
+
+  <!-- HISTORIAL -->
+  <section id="seccion-historial" class="oculto" style="margin-top:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h2 style="margin:0">Historial</h2>
+      <button id="csv" class="mini" style="border:1px solid var(--linea);border-radius:8px;padding:6px 11px;color:var(--acento);font-size:13.5px">Bajar CSV</button>
+    </div>
+    <div id="historial"></div>
+    <button id="ver-mas" class="link oculto" style="width:100%;text-align:center"></button>
+  </section>
+
+  <p class="pie">
+    Las categorías son una referencia general (normal, normal alta, alta), no un diagnóstico.
+    Lo que decida tu médico con estos datos vale más que cualquier etiqueta de acá.
+  </p>
+</main>
+
+<script>
+/* ---------------- almacenamiento ---------------- */
+const K_REG = 'presion.registros', K_CLAVE = 'presion.clave', K_MOD = 'presion.modelos';
+const leer = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const escribir = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+let registros = leer(K_REG, []);
+let borrador = null, verTodo = false, difInstalar = null;
+
+/* ---------------- utilidades ---------------- */
+const $ = (id) => document.getElementById(id);
+const dd = (n) => String(n).padStart(2, '0');
+function ahora(){
+  const d = new Date();
+  return { fecha:`${d.getFullYear()}-${dd(d.getMonth()+1)}-${dd(d.getDate())}`, hora:`${dd(d.getHours())}:${dd(d.getMinutes())}` };
+}
+const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function fechaLarga(iso){
+  const [a,m,d] = iso.split('-').map(Number);
+  return `${DIAS[new Date(a,m-1,d).getDay()]} ${d} de ${MESES[m-1]}`;
+}
+function categoria(s,d){
+  if(s>=180||d>=110) return {t:'muy alta', c:'var(--alto)'};
+  if(s>=160||d>=100) return {t:'alta grado 2', c:'var(--alto)'};
+  if(s>=140||d>=90)  return {t:'alta grado 1', c:'var(--ambar)'};
+  if(s>=130||d>=85)  return {t:'normal alta', c:'var(--ambar)'};
+  if(s<90||d<60)     return {t:'baja', c:'var(--tinta2)'};
+  return {t:'normal', c:'var(--acento)'};
+}
+function mostrar(el, texto){ el.textContent = texto || ''; el.classList.toggle('oculto', !texto); }
+const errorEl = () => $('error'), avisoEl = () => $('aviso');
+
+/* ---------------- foto ---------------- */
+async function achicar(file, max=1400){
+  const url = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error()); r.readAsDataURL(file); });
+  const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error()); i.src=url; });
+  const e = Math.min(1, max/Math.max(img.width,img.height));
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(img.width*e); cv.height = Math.round(img.height*e);
+  cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+  const jpg = cv.toDataURL('image/jpeg', .85);
+  return { b64: jpg.split(',')[1], preview: jpg };
+}
+
+/* ---------------- Gemini ---------------- */
+const API = 'https://generativelanguage.googleapis.com/v1beta';
+const PROMPT = `Esta es la foto de la pantalla de un tensiómetro digital de brazo.
+Devolvé SOLAMENTE un objeto JSON con esta forma exacta:
+{"sistolica":number|null,"diastolica":number|null,"pulso":number|null,"fecha":"YYYY-MM-DD"|null,"hora":"HH:MM"|null,"nota":string}
+Reglas:
+- La sistólica es el número grande de arriba (SYS), la diastólica el del medio (DIA), el pulso el de abajo (PUL, suele tener un corazón).
+- Si el display muestra fecha y hora, incluilas; si no, poné null.
+- Si algún número no se lee con seguridad, poné null y explicá en "nota" en una frase corta en español. Si se lee todo bien, "nota" va vacía.`;
+
+async function modelos(clave){
+  const cache = leer(K_MOD, null);
+  if(cache && cache.length) return cache;
+  const r = await fetch(`${API}/models?pageSize=200`, { headers:{'x-goog-api-key':clave} });
+  if(!r.ok) throw new Error(r.status === 400 || r.status === 403 ? 'clave' : 'red');
+  const j = await r.json();
+  const lista = (j.models||[])
+    .filter(m => (m.supportedGenerationMethods||[]).includes('generateContent'))
+    .map(m => m.name.replace('models/',''))
+    .filter(n => /flash/.test(n) && !/(image|tts|live|audio|embedding|translate|omni|banana|thinking)/i.test(n));
+  const puntaje = (n) => {
+    const v = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/)||[])[1] || 0);
+    let p = -v * 10;
+    if(/flash-lite/.test(n)) p += 3;
+    if(/preview|exp|\d{2}-\d{2}/.test(n)) p += 6;
+    return p;
+  };
+  lista.sort((a,b)=>puntaje(a)-puntaje(b));
+  if(!lista.length) throw new Error('modelos');
+  escribir(K_MOD, lista.slice(0,6));
+  return lista.slice(0,6);
+}
+
+async function leerPantalla(b64){
+  const clave = localStorage.getItem(K_CLAVE);
+  if(!clave) throw new Error('sin-clave');
+  const cands = await modelos(clave);
+  let ultimo;
+  for(const modelo of cands){
+    const r = await fetch(`${API}/models/${modelo}:generateContent`, {
+      method:'POST',
+      headers:{'x-goog-api-key':clave, 'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{role:'user',parts:[
+          { inline_data:{ mime_type:'image/jpeg', data:b64 } },
+          { text: PROMPT }
+        ]}],
+        generationConfig:{ temperature:0, responseMimeType:'application/json' }
+      })
+    });
+    if(!r.ok){ ultimo = r.status; if(r.status===429) throw new Error('cuota'); continue; }
+    const j = await r.json();
+    const partes = j?.candidates?.[0]?.content?.parts || [];
+    const texto = partes.filter(p => p.text && !p.thought).map(p => p.text).join('').replace(/```json|```/g,'').trim();
+    const i = texto.indexOf('{'), f = texto.lastIndexOf('}');
+    if(i === -1 || f === -1) continue;
+    return JSON.parse(texto.slice(i, f+1));
+  }
+  localStorage.removeItem(K_MOD);
+  throw new Error(ultimo === 400 || ultimo === 403 ? 'clave' : 'lectura');
+}
+
+/* ---------------- pantallas ---------------- */
+function pintarHero(){
+  const r = registros[0];
+  if(!r){
+    $('hero').innerHTML = `<p style="font-family:var(--serif);font-size:20px;margin-bottom:4px">Todavía no hay tomas</p>
+      <p class="sub" style="margin:0">Empezá con la primera foto de la pantalla del aparato.</p>`;
+    return;
+  }
+  const cat = categoria(r.sistolica, r.diastolica);
+  const prom = promedio7();
+  $('hero').innerHTML = `
+    <p class="sub" style="margin:0 0 8px">Última toma · ${fechaLarga(r.fecha)}, ${r.hora}</p>
+    <div style="display:flex;align-items:baseline;gap:6px">
+      <span class="num hero-num">${r.sistolica}</span>
+      <span style="font-size:30px;color:var(--linea);line-height:1">/</span>
+      <span class="num hero-dia">${r.diastolica}</span>
+      ${r.pulso ? `<span class="num" style="margin-left:auto;font-size:15px;color:var(--tinta2)">${r.pulso} pulsaciones</span>` : ''}
+    </div>
+    <span class="chip" style="color:${cat.c}">${cat.t}</span>
+    ${prom ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--linea);display:flex;
+        justify-content:space-between;align-items:baseline;color:var(--tinta2);font-size:14px">
+        <span>Promedio de 7 días</span>
+        <span class="num" style="color:var(--tinta);font-size:17px">${prom.s}/${prom.d}
+          <span style="color:var(--tinta2);font-size:13px">(${prom.n} tomas)</span></span></div>` : ''}`;
+}
+
+function promedio7(){
+  const l = new Date(); l.setDate(l.getDate()-7);
+  const iso = `${l.getFullYear()}-${dd(l.getMonth()+1)}-${dd(l.getDate())}`;
+  const r = registros.filter(x => x.fecha >= iso);
+  if(!r.length) return null;
+  const p = k => Math.round(r.reduce((t,x)=>t+(x[k]||0),0)/r.length);
+  return { s:p('sistolica'), d:p('diastolica'), n:r.length };
+}
+
+function pintarGrafico(){
+  const datos = registros.slice(0,30).reverse();
+  $('seccion-grafico').classList.toggle('oculto', datos.length < 2);
+  if(datos.length < 2) return;
+  $('titulo-grafico').textContent = `Últimas ${datos.length} tomas`;
+  const W=420,H=210,ml=30,mr=8,mt=10,mb=24, min=50, max=190;
+  const x = i => ml + (W-ml-mr) * (datos.length===1?0.5:i/(datos.length-1));
+  const y = v => mt + (H-mt-mb) * (1 - (Math.min(max,Math.max(min,v))-min)/(max-min));
+  const linea = (k,color) => `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"
+      points="${datos.map((d,i)=>`${x(i).toFixed(1)},${y(d[k]).toFixed(1)}`).join(' ')}"/>` +
+      datos.map((d,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(d[k]).toFixed(1)}" r="2.5" fill="${color}"/>`).join('');
+  const guias = [60,90,120,150,180].map(v =>
+    `<line x1="${ml}" y1="${y(v)}" x2="${W-mr}" y2="${y(v)}" stroke="var(--linea)" stroke-width="1"/>
+     <text x="4" y="${y(v)+4}" font-size="10" fill="var(--tinta2)">${v}</text>`).join('');
+  const ref = [140,90].map(v => `<line x1="${ml}" y1="${y(v)}" x2="${W-mr}" y2="${y(v)}" stroke="var(--ambar)" stroke-dasharray="4 4" stroke-width="1"/>`).join('');
+  const paso = Math.ceil(datos.length/6);
+  const ejeX = datos.map((d,i)=> i%paso ? '' :
+    `<text x="${x(i)}" y="${H-6}" font-size="10" fill="var(--tinta2)" text-anchor="middle">${d.fecha.slice(8)}/${d.fecha.slice(5,7)}</text>`).join('');
+  $('grafico').innerHTML = guias + ref + linea('sistolica','var(--tinta)') + linea('diastolica','var(--acento)') + ejeX;
+}
+
+function pintarHistorial(){
+  $('seccion-historial').classList.toggle('oculto', registros.length === 0);
+  const mapa = new Map();
+  registros.forEach(r => { if(!mapa.has(r.fecha)) mapa.set(r.fecha, []); mapa.get(r.fecha).push(r); });
+  const dias = [...mapa.entries()];
+  const visibles = verTodo ? dias : dias.slice(0,4);
+  $('historial').innerHTML = visibles.map(([fecha, items]) => `
+    <div style="margin-bottom:14px">
+      <p class="dia">${fechaLarga(fecha)}</p>
+      <div class="lista">${items.map(r => {
+        const c = categoria(r.sistolica, r.diastolica);
+        return `<div class="item">
+          <span class="num" style="color:var(--tinta2);font-size:13.5px;width:44px">${r.hora}</span>
+          <span class="num" style="font-size:18px;font-weight:600">${r.sistolica}/${r.diastolica}</span>
+          ${r.pulso ? `<span class="num" style="color:var(--tinta2);font-size:13.5px">${r.pulso} ppm</span>` : ''}
+          <span style="color:${c.c};font-size:12.5px">${c.t}</span>
+          <span style="margin-left:auto;display:flex;gap:2px">
+            <button class="mini" data-editar="${r.id}">Editar</button>
+            <button class="mini" data-borrar="${r.id}" style="color:var(--alto)">Borrar</button>
+          </span></div>`; }).join('')}</div>
+    </div>`).join('');
+  const vm = $('ver-mas');
+  vm.classList.toggle('oculto', dias.length <= 4);
+  vm.textContent = verTodo ? 'Ver menos' : `Ver los ${dias.length} días`;
+}
+
+function pintar(){ pintarHero(); pintarGrafico(); pintarHistorial(); }
+
+/* ---------------- acciones ---------------- */
+function abrirRevision(datos, preview){
+  borrador = datos;
+  $('sis').value = datos.sistolica ?? '';
+  $('dia').value = datos.diastolica ?? '';
+  $('pul').value = datos.pulso ?? '';
+  $('fecha').value = datos.fecha;
+  $('hora').value = datos.hora;
+  $('brazo').value = datos.brazo || 'izquierdo';
+  $('nota').value = datos.nota || '';
+  const img = $('preview');
+  if(preview){ img.src = preview; img.classList.remove('oculto'); } else { img.classList.add('oculto'); img.removeAttribute('src'); }
+  $('revision').classList.remove('oculto');
+  $('captura').classList.add('oculto');
+  $('revision').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function cerrarRevision(){
+  borrador = null;
+  $('revision').classList.add('oculto');
+  $('captura').classList.remove('oculto');
+  mostrar(errorEl(), ''); mostrar(avisoEl(), '');
+}
+
+async function procesarFoto(e){
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if(!file) return;
+  mostrar(errorEl(),''); mostrar(avisoEl(),'');
+  if(!localStorage.getItem(K_CLAVE)){
+    $('config').classList.remove('oculto');
+    mostrar(errorEl(), 'Falta cargar la clave gratuita de Google AI Studio para leer la foto.');
+    return;
+  }
+  const btn = $('btn-foto');
+  btn.disabled = true; btn.textContent = 'Leyendo la pantalla…';
+  try{
+    const { b64, preview } = await achicar(file);
+    const d = await leerPantalla(b64);
+    const n = ahora();
+    abrirRevision({
+      id:null, sistolica:d.sistolica ?? '', diastolica:d.diastolica ?? '', pulso:d.pulso ?? '',
+      fecha: /^\d{4}-\d{2}-\d{2}$/.test(d.fecha||'') ? d.fecha : n.fecha,
+      hora: /^\d{2}:\d{2}$/.test(d.hora||'') ? d.hora : n.hora,
+      brazo:'izquierdo', nota:''
+    }, preview);
+    if(d.nota) mostrar(avisoEl(), d.nota);
+  }catch(err){
+    const m = {
+      'sin-clave':'Falta cargar la clave en Ajustes.',
+      'clave':'La clave no funcionó. Revisala en Ajustes.',
+      'cuota':'Se agotó el cupo gratuito por hoy. Cargá la toma a mano.',
+      'red':'Sin conexión. Podés cargar la toma a mano.',
+      'lectura':'No pude leer la pantalla. Probá otra foto, más de frente y sin reflejo.'
+    }[err.message] || 'No pude leer la pantalla. Probá otra foto o cargala a mano.';
+    mostrar(errorEl(), m);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Sacar foto del tensiómetro';
+  }
+}
+
+function guardarToma(){
+  const s = parseInt($('sis').value,10), d = parseInt($('dia').value,10);
+  if(!s || !d){ mostrar(errorEl(),'Faltan la sistólica y la diastólica.'); return; }
+  const reg = {
+    id: borrador?.id || String(Date.now()),
+    sistolica:s, diastolica:d,
+    pulso: $('pul').value ? parseInt($('pul').value,10) : null,
+    fecha: $('fecha').value || ahora().fecha,
+    hora: $('hora').value || ahora().hora,
+    brazo: $('brazo').value,
+    nota: $('nota').value.trim()
+  };
+  registros = [...registros.filter(r => r.id !== reg.id), reg]
+    .sort((a,b) => `${b.fecha} ${b.hora}`.localeCompare(`${a.fecha} ${a.hora}`));
+  escribir(K_REG, registros);
+  cerrarRevision();
+  pintar();
+}
+
+function bajar(nombre, contenido, tipo){
+  const url = URL.createObjectURL(new Blob([contenido], {type:tipo}));
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+/* ---------------- eventos ---------------- */
+$('btn-foto').onclick = () => $('camara').click();
+$('btn-galeria').onclick = () => $('galeria').click();
+$('camara').onchange = procesarFoto;
+$('galeria').onchange = procesarFoto;
+$('btn-mano').onclick = () => { const n = ahora(); abrirRevision({ id:null, sistolica:'', diastolica:'', pulso:'', ...n, brazo:'izquierdo', nota:'' }, null); };
+$('cancelar').onclick = cerrarRevision;
+$('guardar').onclick = guardarToma;
+$('btn-config').onclick = () => $('config').classList.toggle('oculto');
+$('ver-mas').onclick = () => { verTodo = !verTodo; pintarHistorial(); };
+
+$('historial').onclick = (e) => {
+  const ed = e.target.dataset?.editar, bo = e.target.dataset?.borrar;
+  if(ed){ const r = registros.find(x => x.id === ed); if(r) abrirRevision({...r}, null); }
+  if(bo && confirm('¿Borrar esta toma?')){
+    registros = registros.filter(x => x.id !== bo);
+    escribir(K_REG, registros); pintar();
+  }
+};
+
+$('guardar-clave').onclick = () => {
+  const v = $('clave').value.trim();
+  if(!v){ $('estado-clave').textContent = 'Pegá la clave primero.'; return; }
+  localStorage.setItem(K_CLAVE, v);
+  localStorage.removeItem(K_MOD);
+  $('estado-clave').textContent = 'Clave guardada en este teléfono.';
+};
+
+$('probar').onclick = async () => {
+  const v = $('clave').value.trim() || localStorage.getItem(K_CLAVE);
+  if(!v){ $('estado-clave').textContent = 'Pegá la clave primero.'; return; }
+  $('estado-clave').textContent = 'Probando…';
+  try{
+    localStorage.removeItem(K_MOD);
+    localStorage.setItem(K_CLAVE, v);
+    const m = await modelos(v);
+    $('estado-clave').textContent = `Funciona. Va a leer con ${m[0]}.`;
+  }catch(err){
+    $('estado-clave').textContent = err.message === 'clave' ? 'La clave no es válida.' : 'No se pudo conectar. Fijate la señal.';
+  }
+};
+
+$('csv').onclick = () => {
+  const filas = [['fecha','hora','sistolica','diastolica','pulso','brazo','nota']];
+  [...registros].reverse().forEach(r => {
+    const [a,m,d] = r.fecha.split('-');
+    filas.push([`${d}/${m}/${a}`, r.hora, r.sistolica, r.diastolica, r.pulso ?? '', r.brazo, r.nota]);
+  });
+  bajar('presion-arterial.csv', '\uFEFF' + filas.map(f=>f.join(';')).join('\n'), 'text/csv;charset=utf-8');
+};
+
+$('exportar-json').onclick = () => bajar('respaldo-presion.json', JSON.stringify(registros), 'application/json');
+$('importar-json').onclick = () => $('archivo-json').click();
+$('archivo-json').onchange = async (e) => {
+  const f = e.target.files?.[0]; e.target.value = '';
+  if(!f) return;
+  try{
+    const lista = JSON.parse(await f.text());
+    if(!Array.isArray(lista)) throw new Error();
+    const mapa = new Map([...registros, ...lista].map(r => [r.id, r]));
+    registros = [...mapa.values()].sort((a,b)=>`${b.fecha} ${b.hora}`.localeCompare(`${a.fecha} ${a.hora}`));
+    escribir(K_REG, registros); pintar();
+    $('estado-clave').textContent = `Restauradas ${lista.length} tomas.`;
+  }catch{ $('estado-clave').textContent = 'Ese archivo no es un respaldo válido.'; }
+};
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); difInstalar = e;
+  $('btn-instalar').classList.remove('oculto');
+});
+$('btn-instalar').onclick = async () => {
+  if(!difInstalar) return;
+  difInstalar.prompt(); await difInstalar.userChoice;
+  difInstalar = null; $('btn-instalar').classList.add('oculto');
+};
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+if(!localStorage.getItem(K_CLAVE)) $('config').classList.remove('oculto');
+$('clave').value = localStorage.getItem(K_CLAVE) || '';
+pintar();
+</script>
+</body>
+</html>
