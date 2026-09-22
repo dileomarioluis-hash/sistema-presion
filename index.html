@@ -58,7 +58,7 @@
   @media print{
     body{background:#fff;padding:0}
     header, #config, #captura, #hero, #seccion-grafico, #seccion-historial,
-    #revision, .pie, #controles-informe, #error, #aviso{display:none !important}
+    #revision, #revision-peso, #seccion-peso, .pie, #controles-informe, #error, #aviso{display:none !important}
     #caja-informe{border:none;padding:0}
     main{max-width:none}
     table{page-break-inside:auto}
@@ -143,11 +143,16 @@
       <button id="btn-galeria" class="secundario">Elegir de la galería</button>
       <button id="btn-mano" class="secundario">Cargar a mano</button>
     </div>
+    <div class="fila-botones">
+      <button id="btn-balanza" class="secundario" style="flex:2;border-color:var(--acento);color:var(--acento);font-weight:600">Foto de la balanza</button>
+      <button id="btn-peso-mano" class="secundario">Peso a mano</button>
+    </div>
     <button id="btn-instalar" class="link oculto" style="margin-top:8px">Instalar en la pantalla de inicio</button>
   </div>
 
   <input id="camara" type="file" accept="image/*" capture="environment" class="oculto">
   <input id="galeria" type="file" accept="image/*" class="oculto">
+  <input id="camara-balanza" type="file" accept="image/*" capture="environment" class="oculto">
 
   <p id="error" class="mensaje oculto" style="border-color:var(--alto);color:var(--alto)"></p>
   <p id="aviso" class="mensaje oculto" style="border-color:var(--ambar);color:var(--ambar)"></p>
@@ -204,6 +209,33 @@
       <button id="guardar" class="principal" style="flex:2">Guardar toma</button>
       <button id="cancelar" class="secundario">Cancelar</button>
     </div>
+  </section>
+
+  <!-- REVISIÓN PESO -->
+  <section id="revision-peso" class="tarjeta borde-acento oculto" style="margin-top:14px">
+    <h2 style="margin-bottom:2px">Revisá el peso</h2>
+    <p class="sub" style="margin:0 0 14px">Corregí si hace falta antes de guardar.</p>
+    <img id="preview-peso" alt="Foto del visor de la balanza"
+         style="width:100%;border-radius:10px;margin-bottom:14px;border:1px solid var(--linea)" class="oculto">
+    <div class="grid3">
+      <div><label for="kg">Peso (kg)</label><input id="kg" class="num" type="number" inputmode="decimal" step="0.1"></div>
+      <div><label for="fecha-peso">Día</label><input id="fecha-peso" type="date"></div>
+      <div><label for="hora-peso">Hora</label><input id="hora-peso" type="time"></div>
+    </div>
+    <div class="fila-botones" style="margin-top:16px">
+      <button id="guardar-peso" class="principal" style="flex:2">Guardar peso</button>
+      <button id="cancelar-peso" class="secundario">Cancelar</button>
+    </div>
+  </section>
+
+  <!-- PESO -->
+  <section id="seccion-peso" class="oculto" style="margin-top:22px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h2 style="margin:0">Peso</h2>
+      <button id="csv-peso" class="mini" style="border:1px solid var(--linea);border-radius:8px;padding:6px 11px;color:var(--acento);font-size:13.5px">CSV</button>
+    </div>
+    <div id="resumen-peso" class="tarjeta" style="margin-bottom:10px"></div>
+    <div id="lista-peso" class="lista"></div>
   </section>
 
   <!-- GRÁFICO -->
@@ -333,7 +365,7 @@ async function modelos(clave){
   return lista.slice(0,6);
 }
 
-async function leerPantalla(b64){
+async function leerPantalla(b64, prompt = PROMPT){
   const clave = localStorage.getItem(K_CLAVE);
   if(!clave) throw new Error('sin-clave');
   const cands = await modelos(clave);
@@ -345,7 +377,7 @@ async function leerPantalla(b64){
       body: JSON.stringify({
         contents:[{role:'user',parts:[
           { inline_data:{ mime_type:'image/jpeg', data:b64 } },
-          { text: PROMPT }
+          { text: prompt }
         ]}],
         generationConfig:{ temperature:0, responseMimeType:'application/json' }
       })
@@ -361,6 +393,14 @@ async function leerPantalla(b64){
   localStorage.removeItem(K_MOD);
   throw new Error(ultimo === 400 || ultimo === 403 ? 'clave' : 'lectura');
 }
+
+const PROMPT_BALANZA = `Esta es la foto del visor de una balanza de baño (báscula de peso corporal).
+Devolvé SOLAMENTE un objeto JSON con esta forma exacta:
+{"kg":number|null,"nota":string}
+Reglas:
+- "kg" es el peso que muestra el visor, con el decimal si lo tiene (ej. 82.4).
+- Si el visor está en libras (lb), convertilo a kg con un decimal y avisalo en "nota".
+- Si el número no se lee con seguridad, poné null y explicá en "nota" en una frase corta en español. Si se lee bien, "nota" va vacía.`;
 
 /* ---------------- pantallas ---------------- */
 function pintarHero(){
@@ -451,7 +491,7 @@ function pintarHistorial(){
   vm.textContent = verTodo ? 'Ver menos' : `Ver los ${dias.length} días`;
 }
 
-function pintar(){ pintarHero(); pintarGrafico(); pintarHistorial(); }
+function pintar(){ pintarHero(); pintarGrafico(); pintarHistorial(); pintarPeso(); }
 
 /* ---------------- acciones ---------------- */
 function abrirRevision(datos, preview){
@@ -602,14 +642,19 @@ $('csv').onclick = () => {
   bajar('presion-arterial.csv', '\uFEFF' + filas.map(f=>f.join(';')).join('\n'), 'text/csv;charset=utf-8');
 };
 
-$('exportar-json').onclick = () => bajar('respaldo-presion.json', JSON.stringify(registros), 'application/json');
+$('exportar-json').onclick = () => bajar('respaldo-presion.json', JSON.stringify({ registros, pesos }), 'application/json');
 $('importar-json').onclick = () => $('archivo-json').click();
 $('archivo-json').onchange = async (e) => {
   const f = e.target.files?.[0]; e.target.value = '';
   if(!f) return;
   try{
-    const lista = JSON.parse(await f.text());
+    const datos = JSON.parse(await f.text());
+    const lista = Array.isArray(datos) ? datos : datos.registros;
     if(!Array.isArray(lista)) throw new Error();
+    if(Array.isArray(datos.pesos)){
+      const mp = new Map([...pesos, ...datos.pesos].map(r => [r.id, r]));
+      pesos = ordenar([...mp.values()]); escribir(K_PESO, pesos);
+    }
     const mapa = new Map([...registros, ...lista].map(r => [r.id, r]));
     registros = [...mapa.values()].sort((a,b)=>`${b.fecha} ${b.hora}`.localeCompare(`${a.fecha} ${a.hora}`));
     escribir(K_REG, registros); pintar();
@@ -737,6 +782,7 @@ function generarInforme(){
       Del ${ddd}/${dm}/${da} al ${hd}/${hm}/${ha} · ${lista.length} tomas · emitido el ${hoy.fecha.split('-').reverse().join('/')}
     </p>
     ${ficha ? `<h3>Datos</h3>${ficha}` : ''}
+    ${bloquePeso(dias)}
     <h3>Promedios</h3>
     ${bloque('General', lista)}
     ${bloque('Mañana (antes de las 12)', manana)}
@@ -768,6 +814,139 @@ $('btn-informe').onclick = () => {
 $('periodo').onchange = generarInforme;
 $('imprimir').onclick = () => window.print();
 $('cerrar-informe').onclick = () => $('seccion-informe').classList.add('oculto');
+
+/* ---------------- peso ---------------- */
+const K_PESO = 'presion.pesos';
+let pesos = leer(K_PESO, []);
+let borradorPeso = null;
+const ordenar = (l) => l.sort((a,b) => `${b.fecha} ${b.hora}`.localeCompare(`${a.fecha} ${a.hora}`));
+const kgTxt = (n) => Number(n).toFixed(1).replace('.', ',');
+
+function abrirPeso(datos, preview){
+  borradorPeso = datos;
+  $('kg').value = datos.kg ?? '';
+  $('fecha-peso').value = datos.fecha;
+  $('hora-peso').value = datos.hora;
+  const img = $('preview-peso');
+  if(preview){ img.src = preview; img.classList.remove('oculto'); } else { img.classList.add('oculto'); img.removeAttribute('src'); }
+  $('revision-peso').classList.remove('oculto');
+  $('captura').classList.add('oculto');
+  $('revision-peso').scrollIntoView?.({behavior:'smooth', block:'center'});
+}
+function cerrarPeso(){
+  borradorPeso = null;
+  $('revision-peso').classList.add('oculto');
+  $('captura').classList.remove('oculto');
+  mostrar(errorEl(), ''); mostrar(avisoEl(), '');
+}
+async function fotoBalanza(e){
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if(!file) return;
+  mostrar(errorEl(),''); mostrar(avisoEl(),'');
+  if(!localStorage.getItem(K_CLAVE)){
+    $('config').classList.remove('oculto');
+    mostrar(errorEl(), 'Falta cargar la clave gratuita de Google AI Studio para leer la foto.');
+    return;
+  }
+  const btn = $('btn-balanza');
+  btn.disabled = true; btn.textContent = 'Leyendo la balanza…';
+  try{
+    const { b64, preview } = await achicar(file);
+    const d = await leerPantalla(b64, PROMPT_BALANZA);
+    abrirPeso({ id:null, kg: d.kg ?? '', ...ahora() }, preview);
+    if(d.nota) mostrar(avisoEl(), d.nota);
+  }catch(err){
+    const m = {
+      'sin-clave':'Falta cargar la clave en Ajustes.',
+      'clave':'La clave no funcionó. Revisala en Ajustes.',
+      'cuota':'Se agotó el cupo gratuito por hoy. Cargá el peso a mano.',
+      'red':'Sin conexión. Podés cargar el peso a mano.'
+    }[err.message] || 'No pude leer la balanza. Probá otra foto, más cerca y sin reflejo.';
+    mostrar(errorEl(), m);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Foto de la balanza';
+  }
+}
+function guardarPeso(){
+  const kg = parseFloat(String($('kg').value).replace(',', '.'));
+  if(!kg || kg < 20 || kg > 350){ mostrar(errorEl(), 'Revisá el peso: tiene que estar en kilos.'); return; }
+  const reg = {
+    id: borradorPeso?.id || String(Date.now()),
+    kg: Math.round(kg*10)/10,
+    fecha: $('fecha-peso').value || ahora().fecha,
+    hora: $('hora-peso').value || ahora().hora
+  };
+  pesos = ordenar([...pesos.filter(r => r.id !== reg.id), reg]);
+  escribir(K_PESO, pesos);
+  // el peso del perfil queda siempre con el último registrado
+  const p = leer(K_PERF, {}); p.peso = String(pesos[0].kg); escribir(K_PERF, p);
+  cargarPerfil();
+  cerrarPeso();
+  pintarPeso();
+}
+function pintarPeso(){
+  $('seccion-peso').classList.toggle('oculto', pesos.length === 0);
+  if(!pesos.length) return;
+  const u = pesos[0];
+  const l = new Date(); l.setDate(l.getDate()-30);
+  const iso = `${l.getFullYear()}-${dd(l.getMonth()+1)}-${dd(l.getDate())}`;
+  const mes = pesos.filter(r => r.fecha >= iso);
+  const ref = mes[mes.length-1];
+  let dif = '';
+  if(ref && ref.id !== u.id){
+    const v = Math.round((u.kg - ref.kg)*10)/10;
+    dif = `<span class="num" style="color:var(--tinta2);font-size:14px">${v === 0 ? 'Sin cambios' : (v > 0 ? '+' : '−') + kgTxt(Math.abs(v)) + ' kg'} en 30 días</span>`;
+  }
+  $('resumen-peso').innerHTML = `
+    <p class="sub" style="margin:0 0 6px">Último peso · ${fechaLarga(u.fecha)}, ${u.hora}</p>
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <span class="num" style="font-size:38px;font-weight:600;letter-spacing:-.02em">${kgTxt(u.kg)} <span style="font-size:18px;color:var(--tinta2)">kg</span></span>
+      ${dif}
+    </div>`;
+  $('lista-peso').innerHTML = pesos.slice(0,8).map(r => `
+    <div class="item">
+      <span style="color:var(--tinta2);font-size:13.5px;flex:1">${fechaLarga(r.fecha)}, ${r.hora}</span>
+      <span class="num" style="font-size:16px;font-weight:600">${kgTxt(r.kg)} kg</span>
+      <button class="mini" data-editar-peso="${r.id}">Editar</button>
+      <button class="mini" data-borrar-peso="${r.id}" style="color:var(--alto)">Borrar</button>
+    </div>`).join('');
+}
+function bloquePeso(dias){
+  let l = pesos;
+  if(dias){
+    const d = new Date(); d.setDate(d.getDate() - dias);
+    const iso = `${d.getFullYear()}-${dd(d.getMonth()+1)}-${dd(d.getDate())}`;
+    l = pesos.filter(r => r.fecha >= iso);
+  }
+  if(!l.length) return '';
+  const u = l[0], pr = l[l.length-1];
+  const fm = (f) => `${f.slice(8)}/${f.slice(5,7)}`;
+  const v = Math.round((u.kg - pr.kg)*10)/10;
+  return `<h3>Peso</h3>
+    <div class="kv"><span>Último (${fm(u.fecha)})</span><span class="num">${kgTxt(u.kg)} kg</span></div>
+    ${l.length > 1 ? `<div class="kv"><span>Primero del período (${fm(pr.fecha)})</span><span class="num">${kgTxt(pr.kg)} kg</span></div>
+    <div class="kv"><span>Variación</span><span class="num">${v > 0 ? '+' : v < 0 ? '−' : ''}${kgTxt(Math.abs(v))} kg (${l.length} pesadas)</span></div>` : ''}`;
+}
+
+$('btn-balanza').onclick = () => $('camara-balanza').click();
+$('camara-balanza').onchange = fotoBalanza;
+$('btn-peso-mano').onclick = () => abrirPeso({ id:null, kg:'', ...ahora() }, null);
+$('guardar-peso').onclick = guardarPeso;
+$('cancelar-peso').onclick = cerrarPeso;
+$('lista-peso').onclick = (e) => {
+  const ed = e.target.dataset?.editarPeso, bo = e.target.dataset?.borrarPeso;
+  if(ed){ const r = pesos.find(x => x.id === ed); if(r) abrirPeso({...r}, null); }
+  if(bo && confirm('¿Borrar este peso?')){
+    pesos = pesos.filter(x => x.id !== bo);
+    escribir(K_PESO, pesos); pintarPeso();
+  }
+};
+$('csv-peso').onclick = () => {
+  const filas = [['fecha','hora','kg']];
+  [...pesos].reverse().forEach(r => { const [a,m,d] = r.fecha.split('-'); filas.push([`${d}/${m}/${a}`, r.hora, String(r.kg).replace('.', ',')]); });
+  bajar('peso.csv', '\uFEFF' + filas.map(f=>f.join(';')).join('\n'), 'text/csv;charset=utf-8');
+};
 
 cargarPerfil();
 
